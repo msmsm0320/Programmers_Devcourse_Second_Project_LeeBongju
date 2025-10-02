@@ -50,7 +50,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/.well-known/appspecific/com.chrome.devtools.json", // 크롬에서 날라오는 백엔드용 요청..?
             "/loginPage",
             "/images/**",
-            "/fonts/**"
+            "/fonts/**",
+        "/api/notifications/**"
     );
 
     @Override
