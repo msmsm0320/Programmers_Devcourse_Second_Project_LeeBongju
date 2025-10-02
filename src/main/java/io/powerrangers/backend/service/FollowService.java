@@ -12,7 +12,10 @@ import io.powerrangers.backend.entity.Follow;
 import io.powerrangers.backend.entity.User;
 import io.powerrangers.backend.exception.CustomException;
 import io.powerrangers.backend.exception.ErrorCode;
+import io.powerrangers.backend.service.notification.NotificationSender;
+import io.powerrangers.backend.service.notification.NotificationType;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ public class FollowService {
 
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
+    private final NotificationSender notificationSender;
 
     @Transactional
     public FollowResponseDto follow(FollowRequestDto request){
@@ -43,6 +47,13 @@ public class FollowService {
 
         try {
             followRepository.save(follow);
+
+            notificationSender.send(
+                String.valueOf(following.getId()),
+                    NotificationType.FOLLOW_CREATED,
+                    follower.getNickname() + "님이 나를 팔로우했습니다!",
+                    Map.of("followerId", follower.getId())
+            );
         } catch (DataIntegrityViolationException e){
             throw new CustomException(ErrorCode.ALREADY_FOLLOWED);
         }

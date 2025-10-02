@@ -12,6 +12,10 @@ import io.powerrangers.backend.entity.User;
 import io.powerrangers.backend.dao.CommentRepository;
 import io.powerrangers.backend.exception.CustomException;
 import io.powerrangers.backend.exception.ErrorCode;
+import io.powerrangers.backend.service.notification.NotificationSender;
+import io.powerrangers.backend.service.notification.NotificationType;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,13 +39,14 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final NotificationSender notificationSender;
 
     @Transactional
     public CommentResponseDto createComment(CommentCreateRequestDto request) {
         Task task = taskRepository.findById(request.getTaskId())
                 .orElseThrow(() -> new CustomException(ErrorCode.TASK_NOT_FOUND));
 
-        User user = userRepository.findById(ContextUtil.getCurrentUserId())
+        User writer = userRepository.findById(ContextUtil.getCurrentUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Comment parent = null;
@@ -50,8 +55,9 @@ public class CommentService {
                     .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
         }
 
-        Comment comment = new Comment(task, user, parent, request.getContent());
+        Comment comment = new Comment(task, writer, parent, request.getContent());
         commentRepository.save(comment);
+        notifyComment(task, writer, parent, comment);
         return CommentResponseDto.from(comment);
     }
 
@@ -113,6 +119,37 @@ public class CommentService {
                 .children(childrenDtos)
                 .createdAt(parent.getCreatedAt())
                 .build();
+    }
+
+    private void notifyComment(Task task, User writer, Comment parent, Comment saved){
+        User taskOwnerOrAssignee = task.getUser();
+        User parentAuthor = (parent != null) ? parent.getUser() : null;
+
+        var targets = new LinkedHashSet<Long>();
+        if (taskOwnerOrAssignee != null) targets.add(taskOwnerOrAssignee.getId());
+        if (parentAuthor != null) targets.add(parentAuthor.getId());
+
+        targets.remove(writer.getId());
+        if (targets.isEmpty()) return;
+
+        for (Long uid : targets) {
+            notificationSender.send(
+                String.valueOf(uid),
+                NotificationType.COMMENT_CREATED,
+                writer.getNickname() + "님이 댓글을 남겼습니다: " + ellipsis(saved.getContent(), 40),
+                Map.of(
+                    "taskOwnerId", uid,
+                    "taskId", task.getId(),
+                    "commentId", saved.getId(),
+                    "writerId", writer.getId()
+                )
+            );
+        }
+    }
+
+    private static String ellipsis(String s, int max) {
+        if (s == null) return "";
+        return (s.length() <= max) ? s : s.substring(0, max) + "…";
     }
 
 }
