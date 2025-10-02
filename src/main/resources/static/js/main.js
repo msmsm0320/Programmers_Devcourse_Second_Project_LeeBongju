@@ -1,14 +1,20 @@
 import {apiFetch} from "./token-reissue.js";
 import {buildCalendar} from "./index.js";
 
+let __currentTaskId = null;
+
 // Fetch logged-in user's userId from server
 async function setUserIdFromServer() {
     try {
         const res = await apiFetch('/users/me');
         if (!res.ok) throw new Error("인증 필요");
+
         const response = await res.json();
-        localStorage.setItem("userId", response.data);
-        console.log("✅ userId 저장됨:", response.data);
+        const userId=response.data;
+
+        localStorage.setItem("userId", userId);
+        console.log("✅ userId 저장됨:", userId);
+
     } catch (e) {
         console.error("로그인 필요:", e);
         alert("로그인이 필요합니다.");
@@ -43,7 +49,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
                 body: JSON.stringify(taskData),
             })
-            if (!res.ok) throw new Error("마감일을 지금보다 이후 시간으로 설정해주세요.")
+
+            if (!res.ok) {
+                const errorData = await res.json()
+                let errorMessage = errorData?.message || "오류가 발생했습니다."
+
+                if (errorMessage.includes("category")) {
+                    errorMessage = "카테고리는 10자 이하로 입력해주세요."
+                } else if (errorMessage.includes("dueDate") || errorMessage.includes("기한")) {
+                    errorMessage = "마감일을 지금보다 이후 시간으로 설정해주세요."
+                }
+                throw new Error(errorMessage)
+            }
 
             await fetchAndRenderTasks(new Date(), localStorage.getItem("userId"))
             const calendarEl = document.getElementById("calendar");
@@ -60,6 +77,28 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     // 댓글 기능 추가
     initCommentFeature()
+
+    (async function initOpenCommentFromQuery() {
+        try {
+            const params = new URLSearchParams(location.search);
+            const taskId = params.get("openCommentTaskId");
+            const commentId = params.get("commentId");
+            if (!taskId) return;
+
+            await openCommentsForTask(taskId);
+
+            // 특정 댓글로 스크롤 (있으면)
+            if (commentId) {
+                const el = document.getElementById(`comment-${commentId}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+
+            // 새로고침 시 중복 오픈 방지
+            history.replaceState({}, "", location.pathname);
+        } catch (e) {
+            console.warn("[initOpenCommentFromQuery] 실패", e);
+        }
+    })();
 })
 
 // JSON 요청에 사용
@@ -174,9 +213,6 @@ function dueDateToDate(dueDateStr) {
 function createTaskItem(task, targetUserId) {
     const existingUserId = localStorage.getItem("userId")
     const isMine = targetUserId === existingUserId;
-    console.log("targetUserId: ", targetUserId)
-    console.log("existingUserId: ", existingUserId)
-    console.log(isMine)
 
     const taskItem = document.createElement("div")
     taskItem.className = "task-item"
@@ -538,8 +574,33 @@ async function uploadImage(taskId) {
     document.body.removeChild(input)
 }
 
+// === 특정 taskId의 댓글 모달을 프로그래밍적으로 열기 ===
+async function openCommentsForTask(taskId) {
+    // 모달 준비
+    const modal = document.getElementById("commentModal") || createCommentModal();
+    const commentList  = modal.querySelector(".comment-list");
+    const commentForm  = modal.querySelector(".comment-form");
+    const commentInput = commentForm.querySelector("textarea");
+
+    __currentTaskId = String(taskId);
+
+    // 댓글 로드 & 렌더
+    const comments = await fetchComments(taskId);
+    await renderComments(commentList, taskId, comments);
+
+    // 모달 표시 + 입력 초기화
+    modal.classList.remove("hidden");
+    commentInput.value = "";
+
+    return { modal, comments };
+}
+
 // 댓글 모달 요소 생성
 function createCommentModal() {
+
+    const exist = document.getElementById("commentModal");
+    if (exist) return exist;
+
     const modal = document.createElement("div")
     modal.id = "commentModal"
     modal.className = "comment-modal hidden"
@@ -620,6 +681,7 @@ function createCommentElement(comment, taskId, isReply = false) {
     const commentEl = document.createElement("div")
     commentEl.className = isReply ? "reply-item ml-6 border-l pl-4 mt-2" : "comment-item mt-4"
     commentEl.dataset.id = comment.id
+    commentEl.id = `comment-${comment.id}`; // ✅ 해시 스크롤용
 
     const authorImg =
         comment.profileImage ||
@@ -801,13 +863,11 @@ function updateCommentCount(taskId, count) {
 // 댓글 기능 초기화
 export function initCommentFeature() {
     // 모달 생성
-    const modal = createCommentModal()
+    const modal = document.getElementById("commentModal") || createCommentModal()
     const commentList = modal.querySelector(".comment-list")
     const commentForm = modal.querySelector(".comment-form")
     const commentInput = commentForm.querySelector("textarea")
     const submitButton = commentForm.querySelector(".submit-comment")
-
-    let currentTaskId = null
 
     // 댓글 아이콘 클릭 이벤트 처리
     document.addEventListener("click", async (e) => {
@@ -817,7 +877,7 @@ export function initCommentFeature() {
             if (!taskItem) return
 
             const taskId = taskItem.id.replace("task-", "")
-            currentTaskId = taskId
+            __currentTaskId = taskId
 
             // 댓글 불러오기
             const comments = await fetchComments(taskId)
@@ -831,12 +891,12 @@ export function initCommentFeature() {
     // 댓글 제출 이벤트
     submitButton.addEventListener("click", async () => {
         const content = commentInput.value.trim()
-        if (!content || !currentTaskId) return
+        if (!content || !__currentTaskId) return
 
         // CommentCreateRequestDto 형식에 맞게 데이터 구성
         const request = {
             content: content,
-            taskId: currentTaskId,
+            taskId: __currentTaskId,
         }
 
         const success = await addComment(request)
@@ -844,10 +904,10 @@ export function initCommentFeature() {
             commentInput.value = ""
 
             // 댓글 다시 불러오기
-            const comments = await fetchComments(currentTaskId)
+            const comments = await fetchComments(__currentTaskId)
             const totalCount = countCommentsWithReplies(comments)
-            await renderComments(commentList, currentTaskId, comments)
-            updateCommentCount(currentTaskId, totalCount)
+            await renderComments(commentList, __currentTaskId, comments)
+            updateCommentCount(__currentTaskId, totalCount)
         }
     })
 
@@ -910,8 +970,50 @@ async function postponeDueDate(taskId) {
         due.setHours(due.getHours() - 24)
         const targetDate = due.toISOString()
         await fetchAndRenderTasks(dueDateToDate(targetDate), localStorage.getItem("userId"))
+        const calendarEl = document.getElementById("calendar");
+        if (calendarEl) {
+            buildCalendar(calendarEl, localStorage.getItem("userId"));
+        } else {
+            console.warn("❗ calendar 요소가 없음");
+        }
     } catch (err) {
         console.error("미루기 실패:", err)
         alert(err.message)
     }
 }
+
+// ===== 댓글 모달 자동 오픈 (URL 쿼리 이용) =====
+(function autoOpenCommentFromQuery() {
+    try {
+        const params = new URLSearchParams(location.search);
+        const taskId = params.get("openCommentTaskId");
+        const commentId = params.get("commentId");
+
+
+        if (!taskId) {
+            console.log("[auto-open] no query -> skip");
+            return;
+        }
+        console.log("[auto-open] detected taskId=%s, commentId=%s", taskId, commentId);
+
+        // 모달 열고 댓글 로드
+        openCommentsForTask(taskId).then(() => {
+            // 특정 댓글로 스크롤
+            if (commentId) {
+                const el = document.getElementById(`comment-${commentId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    console.log("[auto-open] scrolled to comment-%s", commentId);
+                } else {
+                    console.log("[auto-open] comment element not found yet");
+                }
+            }
+            // 새로고침 시 재오픈 방지 (해시는 유지)
+            history.replaceState({}, "", location.pathname + location.hash);
+        }).catch(err => {
+            console.warn("[auto-open] openCommentsForTask failed:", err);
+        });
+    } catch (e) {
+        console.warn("[auto-open] unexpected error:", e);
+    }
+})();

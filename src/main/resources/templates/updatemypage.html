@@ -5,6 +5,7 @@
   <title>마이페이지 수정</title>
   <link rel="stylesheet" href="/css/updatemypage.css">
   <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
 
@@ -77,7 +78,12 @@
 <script th:inline="javascript">
   const userId = /*[[${userId}]]*/ 1;
 </script>
-<script src="/js/updateMypage.js"></script>
+
+<script type='module' src="/js/updateMypage.js"></script>
+<script type="module">
+  import { setupNotification } from '/js/notification.js';
+  setupNotification();
+</script>
 
 </body>
 </html>

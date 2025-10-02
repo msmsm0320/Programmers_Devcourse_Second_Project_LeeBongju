@@ -1,4 +1,5 @@
 import {apiFetch} from "./token-reissue.js";
+import {attachGoToHomeHandler, attachLogoutHandler} from "./header.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
     const targetUserId = new URLSearchParams(window.location.search).get("userId");
@@ -247,27 +248,98 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    document.getElementById("goHomeBtn")?.addEventListener("click", () => {
-        window.location.href = `/index.html?userId=${localStorage.getItem("userId")}`;
-    });
+    attachGoToHomeHandler()
 
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-        if (!confirm("정말 로그아웃하시겠습니까?")) return;
-
-        apiFetch("/users/logout", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            }
-        })
-            .then(() => {
-                alert("성공적으로 로그아웃 되었습니다.");
-                localStorage.removeItem("userId");
-                window.location.replace("/loginPage");
-            })
-            .catch(err => {
-                console.error("로그아웃 실패", err);
-                alert("로그아웃 중 문제가 발생했습니다.");
-            });
-    });
+    attachLogoutHandler('logoutBtn', () => fetch("/users/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }));
 });
+
+// === 페이지 로드 시 query/hash로 모달 자동 오픈 ===
+document.addEventListener("DOMContentLoaded", initFromQuery);
+
+async function initFromQuery() {
+    try {
+        const params = new URLSearchParams(location.search);
+        const userId = params.get("userId");
+        const taskId = params.get("taskId");
+        const anchor = location.hash ? location.hash.slice(1) : null; // e.g. 'comment-123'
+
+        // 1) 기존 유저 페이지 데이터 렌더(이미 함수가 있으면 호출, 없으면 무시)
+        if (userId && typeof loadUserPage === "function") {
+            await loadUserPage(userId);
+        }
+
+        // 2) taskId가 있으면 모달용 데이터 로드 & 오픈
+        if (taskId) {
+            const detail = await (await fetch(`/tasks/${taskId}`)).json();
+            const t = detail.data;
+
+            // user-page.js의 기존 로직과 동일하게 모달 필드 채우기
+            document.getElementById("modal-img").src = t.taskImage ?? "";
+            if (!t.taskImage) { document.getElementById("modal-img").classList.add("hidden"); }
+            else { document.getElementById("modal-img").classList.remove("hidden"); }
+
+            document.getElementById("modal-date").textContent     = (t.dueDate || "").split("T")[0];
+            document.getElementById("modal-status").textContent   = t.status ?? "";
+            document.getElementById("modal-content").textContent  = t.content ?? "";
+            document.getElementById("modal-category").textContent = t.category ?? "";
+
+            // 모달 오픈
+            document.getElementById("task-modal").classList.remove("hidden");
+
+            // 3) 댓글 목록 렌더(프로젝트 API 경로에 맞게)
+            //    user-page.js에 댓글 렌더 코드가 있다면 그걸 호출하고,
+            //    없다면 아래 fetch/append를 간단히 추가
+            try {
+                const cRes = await fetch(`/api/comments?taskId=${encodeURIComponent(taskId)}`);
+                const cJson = await cRes.json();
+                const comments = Array.isArray(cJson.data) ? cJson.data : [];
+                const ul = document.getElementById("comments") || createCommentsList();
+                ul.innerHTML = "";
+                comments.forEach(c => appendCommentNode(ul, c));
+            } catch (e) {
+                console.warn("[initFromQuery] 댓글 로딩 실패", e);
+            }
+
+            // 4) 해시가 #comment-XXX 이면 스크롤
+            if (anchor) {
+                const el = document.getElementById(anchor);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }
+    } catch (e) {
+        console.error("[initFromQuery] 오류", e);
+    }
+}
+
+// 없으면 만들어주는 유틸
+function createCommentsList() {
+    const box = document.querySelector("#task-modal .task-modal-content");
+    const ul = document.createElement("ul");
+    ul.id = "comments";
+    ul.className = "mt-3 space-y-2";
+    box.appendChild(ul);
+    return ul;
+}
+
+function appendCommentNode(container, c) {
+    const li = document.createElement("li");
+    li.id = `comment-${c.id}`;
+    li.className = "p-2 rounded bg-gray-50";
+    li.innerHTML = `
+    <div class="text-sm text-gray-500">${escapeHtml(c.nickname ?? "")}</div>
+    <div class="text-base">${escapeHtml(c.content ?? "")}</div>
+  `;
+    container.appendChild(li);
+    if (Array.isArray(c.children)) c.children.forEach(ch => appendCommentNode(container, ch));
+}
+
+function escapeHtml(s="") {
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+

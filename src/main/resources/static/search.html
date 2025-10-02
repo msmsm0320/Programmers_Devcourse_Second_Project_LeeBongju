@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/css/search.css">
     <link rel="stylesheet" href="/css/index.css">
     <link rel="stylesheet" href="/css/fonts.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
     <header class="header">
@@ -44,7 +45,11 @@
         </div>
     </main>
 
-    <script src="/js/search.js"></script>
-    <script src="/js/follow.js"></script>
+    <script type='module' src="/js/search.js"></script>
+    <script type='module' src="/js/follow.js"></script>
+    <script type="module">
+        import { setupNotification } from '/js/notification.js';
+        setupNotification();
+    </script>
 </body>
 </html> 

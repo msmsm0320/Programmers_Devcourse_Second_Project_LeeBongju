@@ -5,6 +5,7 @@
     <title>유저 페이지</title>
     <link rel="stylesheet" href="/css/mypage.css">
     <link rel="stylesheet" href="/css/fonts.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
 
@@ -90,6 +91,10 @@
 
 <!-- ✅ JS는 body 하단에서 로드 -->
 <script type="module" src="/js/user-page.js"></script>
+<script type="module">
+    import { setupNotification } from '/js/notification.js';
+    setupNotification();
+</script>
 
 </body>
 </html>

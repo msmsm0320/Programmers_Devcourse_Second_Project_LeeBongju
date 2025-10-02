@@ -5,13 +5,14 @@
     <title>마이페이지</title>
     <link rel="stylesheet" href="/css/fonts.css">
     <link rel="stylesheet" href="/css/mypage.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
 
 <!-- ✅ 헤더 -->
 <header class="header">
     <div class="logo">
-        <span class="logo-text">
+        <span class="logo-text" id="homeLogo" style="cursor: pointer;">
             <span id="nickname" th:text="${nickname}">파워레인저</span> <span class="star">★</span>
         </span>
     </div>
@@ -73,7 +74,7 @@
         <div class="memories-wrapper">
             <div class="memories-box">
                 <div class="memory-gallery" id="memory-gallery">
-                    <img src="/images/your-image.png" class="memory-img" />
+                    <img src="/images/default-profile.png" class="memory-img" />
                 </div>
             </div>
 
@@ -102,7 +103,11 @@
 
 
 <!-- ✅ JS -->
-<script src="/js/mypage.js"></script>
+<script type='module' src="/js/mypage.js"></script>
+<script type="module">
+    import { setupNotification } from '/js/notification.js';
+    setupNotification();
+</script>
 
 
 </body>

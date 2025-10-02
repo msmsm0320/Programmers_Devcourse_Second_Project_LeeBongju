@@ -1,4 +1,6 @@
 // 전역 변수 선언
+import {attachLogoutHandler} from "./header.js";
+
 let followersListElem;
 let followingListElem;
 
@@ -242,16 +244,13 @@ document.addEventListener('DOMContentLoaded', () => {
         profileBtn.addEventListener('click', () => window.location.href = '/mypage');
     }
 
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            if (typeof AUTH !== 'undefined' && AUTH.logout) {
-                AUTH.logout();
-            } else {
-                window.location.replace('/loginPage');
-            }
-        });
-    }
+    attachLogoutHandler('logoutBtn', () => fetch("/users/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }));
 
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {

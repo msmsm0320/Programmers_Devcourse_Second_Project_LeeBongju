@@ -192,33 +192,4 @@ document.addEventListener('DOMContentLoaded', () => {
             performSearch();
         }
     });
-
-    // ===== Header actions =====
-    const logo = document.getElementById('homeLogo');
-    if (logo) {
-        logo.addEventListener('click', () => {
-            const userId = localStorage.getItem('userId');
-            if (userId) {
-                window.location.href = `/index.html?userId=${userId}`;
-            } else {
-                window.location.href = '/index.html';
-            }
-        });
-    }
-    const profileBtn = document.getElementById('profileBtn');
-    if (profileBtn) {
-        profileBtn.addEventListener('click', () => {
-            window.location.href = '/mypage';
-        });
-    }
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            if (typeof AUTH !== 'undefined' && AUTH.logout) {
-                AUTH.logout();
-            } else {
-                window.location.replace('/loginPage');
-            }
-        });
-    }
 }); 

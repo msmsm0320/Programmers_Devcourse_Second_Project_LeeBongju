@@ -1,5 +1,6 @@
 import {apiFetch} from "./token-reissue.js";
 import {fetchAndRenderTasks} from './main.js';
+import {attachGoToHomeHandler, attachLogoutHandler} from "./header.js";
 
 document.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams(window.location.search);
@@ -19,33 +20,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetchAndRenderTasks(new Date(), userIdToShow);
 
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-        if (confirm("정말 로그아웃하시겠습니까?")) {
-            apiFetch("/users/logout", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            })  // (로그아웃은 access token 만료여도 재시도 불필요)
-                .finally(() => {
-                    alert("성공적으로 로그아웃 되었습니다.");
-                    localStorage.removeItem("userId");
-                    window.location.replace("/loginPage");
-                });
-        }
-    });
+    attachGoToHomeHandler()
 
-    const logo = document.getElementById('homeLogo');
-    if (logo) {
-        logo.addEventListener('click', () => {
-            const userId = localStorage.getItem('userId');
-            if (userId) {
-                window.location.href = `/index.html?userId=${userId}`;
-            } else {
-                window.location.href = '/index.html';
-            }
-        });
-    }
+    attachLogoutHandler('logoutBtn', () => fetch("/users/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }));
 });
 
 async function fetchTaskSummary(year, month, userId) {

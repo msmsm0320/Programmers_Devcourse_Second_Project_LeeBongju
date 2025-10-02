@@ -1,6 +1,7 @@
 import {apiFetch} from "./token-reissue.js";
 import {buildCalendar} from "./index.js";
 import {initCommentFeature} from "./main.js";
+import {attachGoToHomeHandler} from "./header.js";
 
 const params = new URLSearchParams(window.location.search);
 const targetUserId = params.get("userId");
@@ -51,18 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         window.location.href = `/user-page.html?userId=${targetUserId}`;
     });
 
-    const homeBtn = document.getElementById('homeBtn');
-    if (homeBtn) {
-        homeBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const userId = localStorage.getItem('userId');
-            if (userId) {
-                window.location.href = `/index.html?userId=${userId}`;
-            } else {
-                window.location.href = '/index.html';
-            }
-        });
-    }
+    attachGoToHomeHandler()
 });
 
 export async function initFollowToggleButton(targetUserId) {

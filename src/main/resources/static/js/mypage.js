@@ -1,3 +1,5 @@
+import {attachGoToHomeHandler, attachLogoutHandler} from "./header.js";
+
 document.addEventListener("DOMContentLoaded", async () => {
     const userId = localStorage.getItem("userId");
 
@@ -18,22 +20,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    const logo = document.getElementById('homeLogo');
-    if (logo) {
-        logo.addEventListener('click', () => {
-            const userId = localStorage.getItem('userId');
-            if (userId) {
-                window.location.href = `/index.html?userId=${userId}`;
-            } else {
-                window.location.href = '/index.html';
-            }
-        });
-    }
+    attachGoToHomeHandler()
 
-    document.getElementById("logoutBtn")?.addEventListener("click", () => {
-        localStorage.clear();
-        window.location.href = "/login";
-    });
+    attachLogoutHandler('logoutBtn', () => fetch("/users/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }));
 
     // 유저 정보 불러오기
     try {
@@ -71,8 +66,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 오늘의 할 일 목록 불러오기
     try {
-        const today = new Date().toISOString().split("T")[0];
-        const res = await fetch(`/users/${userId}/tasks?date=${today}`, {
+        // const today = new Date().toISOString().split("T")[0];
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const formattedToday = `${yyyy}-${mm}-${dd}`;
+        const res = await fetch(`/users/${userId}/tasks?date=${formattedToday}`, {
             credentials: "include"
         });
 

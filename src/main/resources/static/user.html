@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/css/index.css">
     <link rel="stylesheet" href="/css/fonts.css">
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 </head>
 <body>
 <!-- ===== Header ===== -->
@@ -63,6 +63,10 @@
 
 <!-- ===== JavaScript ===== -->
 <script type='module' src="/js/user.js"></script>
-<script src="/js/search.js"></script>
+<script type='module' src="/js/search.js"></script>
+<script type="module">
+    import { setupNotification } from '/js/notification.js';
+    setupNotification();
+</script>
 </body>
 </html>
